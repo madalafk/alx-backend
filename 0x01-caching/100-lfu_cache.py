@@ -1,21 +1,18 @@
-#!/usr/bin/python3
+#!/usr/bin/env python3
 """
-defines the LFUCache class, which is a subclass of the BaseCaching class.
-LFUCache implements a Least Frequently Used (LFU) caching system.
+class LFUCache that inherits from BaseCaching and is a caching system
 """
 
 from base_caching import BaseCaching
-from collections import OrderedDict
 
 
 class LFUCache(BaseCaching):
     """
-    LFUCache class represents a Least Frequently Used (LFU) caching system.
+    class LFUCache represents a Least Frequently Used (LFU) caching system.
 
     Attributes:
-        cache_data (OrderedDict): An ordered dictionary to store
-        key-value pairs in the cache.
-        mru (str): Most Recently Used key in the cache.
+        usage (list): A list to keep track of the usage order of keys.
+        frequency (dict): A dictionary to store the frequency of each key.
     """
 
     def __init__(self):
@@ -23,12 +20,12 @@ class LFUCache(BaseCaching):
         Initialize the LFUCache class by calling the parent class's init method.
         """
         super().__init__()
-        self.cache_data = OrderedDict()
-        self.mru = ""
+        self.usage = []
+        self.frequency = {}
 
     def put(self, key, item):
         """
-        Add an item to the LFUCache.
+        Cache a key-value pair using the Least Frequently Used (LFU) strategy.
 
         Args:
             key: The key to cache.
@@ -37,25 +34,30 @@ class LFUCache(BaseCaching):
         Returns:
             None
         """
-        if key and item:
-            if len(self.cache_data) >= BaseCaching.MAX_ITEMS:
-                if key in self.cache_data:
-                    self.cache_data.update({key: item})
-                    self.mru = key
-                else:
-                    # Discard the most recently used item
-                    discarded = self.mru
-                    del self.cache_data[discarded]
-                    print("DISCARD: {}".format(discarded))
-                    self.cache_data[key] = item
-                    self.mru = key
-            else:
-                self.cache_data[key] = item
-                self.mru = key
+        if key is None or item is None:
+            return
+
+        if len(self.cache_data) >= BaseCaching.MAX_ITEMS and key not in self.cache_data:
+            lfu_keys = [k for k, v in self.frequency.items() if v == min(self.frequency.values())]
+            lru_lfu = {k: self.usage.index(k) for k in lfu_keys}
+            discard = min(lru_lfu, key=lambda k: lru_lfu[k])
+            print("DISCARD: {}".format(discard))
+            del self.cache_data[discard]
+            del self.usage[self.usage.index(discard)]
+            del self.frequency[discard]
+
+        self.frequency[key] = self.frequency.get(key, 0) + 1
+
+        if key in self.usage:
+            self.usage.remove(key)
+
+        self.usage.append(key)
+        self.cache_data[key] = item
 
     def get(self, key):
         """
-        Get an item from the LFUCache.
+        Retrieve the value linked to a given key using the
+        Least Frequently Used (LFU) strategy.
 
         Args:
             key: The key to look up.
@@ -64,5 +66,8 @@ class LFUCache(BaseCaching):
             The value associated with the key if present, otherwise None.
         """
         if key in self.cache_data:
-            self.mru = key
+            self.usage.remove(key)
+            self.usage.append(key)
+            self.frequency[key] += 1
             return self.cache_data[key]
+        return None
